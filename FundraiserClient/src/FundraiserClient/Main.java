@@ -1,35 +1,37 @@
 package FundraiserClient;
-
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.io.*;
+import java.net.*;
 
 public class Main {
 
-    public static void main(String[] args) throws IOException {
-		String sentence;
-		String modifiedSentence;
+    public static void main(String[] args) throws Exception {
+        String sentence;
+        String response;
 
-		BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
+        BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
+        Socket clientSocket = new Socket("localhost", 6900); // Replace with your server's address and port
 
-		Socket clientSocket = new Socket("localhost", 6900);
+        BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 
-		DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
-		BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-		
-		System.out.println("The TCP client is on. Please enter your input:");
+        System.out.println("Connecting to server...");
 
-		sentence = inFromUser.readLine();
+        while (true) {
+            response = inFromServer.readLine();
+            if (response == null) {
+                break; // Server disconnected
+            }
+            
+            if ("<<READY>>".equals(response)) {
+                System.out.print(">> ");
+                sentence = inFromUser.readLine();
+                outToServer.writeBytes(sentence + '\n');
+                outToServer.flush();
+            } else {
+                System.out.println(response);
+            }
+        }
 
-		outToServer.writeBytes(sentence + '\n');
-
-		modifiedSentence = inFromServer.readLine();
-
-		System.out.println(">> " + modifiedSentence);
-
-		clientSocket.close();
+        clientSocket.close();
     }
 }

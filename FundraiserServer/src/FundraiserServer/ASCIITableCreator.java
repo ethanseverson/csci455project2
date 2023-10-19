@@ -164,6 +164,149 @@ public class ASCIITableCreator {
             }
         }
     }
+    //This time, return a string.
+    public static String print(String[][] input, int cellPadding, boolean separatorLines, 
+                    String tableHeader, String[] columnHeaders, boolean respectHeaders,
+                    boolean formatNumbers, StringBuilder sb) {
+        if (input.length > 0) {
+            if (input[0].length > 0) {
+                String[][] sign = new String[input.length][input[0].length];
+                if (formatNumbers) {
+                    //convert numbers with comma and 2 decimal percision
+                    for (int i = 0; i < input.length; i++) {
+                        for (int j = 0; j < input[0].length; j++) {
+                            if (input[i][j] == null) {
+                                throw new NullPointerException("ACSII Table cannot be generated since the input array contains a null value.");
+                            }
+                            try {
+                                float number = Float.parseFloat(input[i][j]);
+                                input[i][j] = String.format("%,.0f", number);
+                                sign[i][j] = "";
+                            } catch (NumberFormatException e) {
+                                sign[i][j] = "-";
+                            }
+                        }
+                    }
+                } else {
+                    for (int i = 0; i < input.length; i++) {
+                        for (int j = 0; j < input[0].length; j++) {
+                            if (input[i][j] == null) {
+                                throw new NullPointerException("ACSII Table cannot be generated since the input array contains a null value.");
+                            }
+                            sign[i][j] = "-";
+                        }
+                    }
+                }
+
+                int[] cellWidths = findColumnWidths(input); //Calculate column widths
+
+                if (respectHeaders && !(columnHeaders == null)) {
+                    if (columnHeaders.length != input[0].length) {
+                        throw new NullPointerException("Column headers input does not match data column count.");
+                    }
+                    for (int j = 0; j < cellWidths.length; j++) {
+                        if (cellWidths[j] < columnHeaders[j].length()) {
+                            cellWidths[j] = columnHeaders[j].length();
+                        }
+                    }
+                }
+
+                if (!(tableHeader == null || tableHeader.equals(""))) {
+                    int width = 1;
+                    for (int i = 0; i < cellWidths.length; i++) {
+                        width += (cellPadding * 2) + cellWidths[i] + 1;
+                    }
+                    if (tableHeader.length() > (width - 4)) {
+                        if (respectHeaders) {
+                            int diff = tableHeader.length() - (width - 4);
+                            while (diff > 0) {
+                                for (int j = 0; j < cellWidths.length; j++) {
+                                    if (diff > 0) {
+                                        cellWidths[j] += 1;
+                                        diff--;
+                                        width++;
+                                    }
+                                }
+                            }
+
+                        } else {
+                            tableHeader = tableHeader.substring(0, (width - 7)) + "...";
+                        }
+                    }
+                    int pad = (width - (tableHeader.length() + 4)) / 2;
+                    String padStr = " ";
+                    for (int p = 0; p < pad; p++) {
+                        padStr += " ";
+                    }
+                    String padStrR = padStr;
+                    if ((width - (tableHeader.length() + 4)) % 2 == 1) {
+                        padStrR += " ";
+                    }
+                    sb.append(String.format(("+")));
+                    for (int d = 0; d < (width - 2); d++) {
+                        sb.append(String.format(("-")));
+                    }
+                    sb.append(String.format("+\n|%s%s%s|\n", padStr, tableHeader, padStrR));
+                }
+
+                printSeparator(cellWidths, cellPadding, sb); //Print seperator line (header)
+
+                //Create cell padding string to use before and after each element
+                //(not the cleanest way and avoids using printf options)
+                String cellPad = "";
+                for (int p = 0; p < cellPadding; p++) {
+                    cellPad += " ";
+                }
+                //Column headers
+                if (!(columnHeaders == null)) {
+                    if (columnHeaders.length != input[0].length) {
+                        throw new NullPointerException("Column headers input does not match data column count.");
+                    } else {
+                        for (int c = 0; c < input[0].length; c++) {
+                            String header = columnHeaders[c];
+                            int cellWidth = (cellPadding * 2) + cellWidths[c];
+                            if (header.length() > cellWidths[c]) {
+                                header = header.substring(0, (cellWidth - 7)) + "...";
+                            }
+                            int pad = (cellWidth - (header.length() + 2)) / 2;
+                            String padStr = " ";
+                            for (int p = 0; p < pad; p++) {
+                                padStr += " ";
+                            }
+                            String padStrR = padStr;
+                            if ((cellWidth - (header.length() + 2)) % 2 == 1) {
+                                padStrR += " ";
+                            }
+
+                            sb.append(String.format("|%s%s%s", padStr, header, padStrR));
+                        }
+                        sb.append(String.format("|\n"));
+                        printSeparator(cellWidths, cellPadding, sb); //Print seperator line (cell header)
+                    }
+                }
+
+                //MAIN PRINT LOOP
+                for (int i = 0; i < input.length; i++) {
+
+                    //If containsRowHeaders is enabled, a seperator line will be outputed after the first row of data
+                    if (i >= 1 && separatorLines) {
+                        printSeparator(cellWidths, cellPadding, sb);
+                    }
+                    //For each element loop
+                    for (int j = 0; j < input[i].length; j++) {
+                        sb.append(String.format("|%s%" + sign[i][j] + cellWidths[j] + "s%s", cellPad, input[i][j], cellPad)); //Printing the element
+                    }
+                    sb.append(String.format("|\n"));
+
+                }
+
+                printSeparator(cellWidths, cellPadding, sb); //Print seperator line (footer)
+
+            }
+        }
+    return sb.toString();
+}
+
 
     private static void printSeparator(int[] cellWidths, int cellPadding) {
         for (int c = 0; c < cellWidths.length; c++) {
@@ -174,6 +317,17 @@ public class ASCIITableCreator {
         }
         System.out.printf("+\n");
     }
+    
+    private static void printSeparator(int[] cellWidths, int cellPadding, StringBuilder sb) {
+        for (int c = 0; c < cellWidths.length; c++) {
+            sb.append("+");
+            for (int d = 0; d < cellWidths[c] + (cellPadding * 2); d++) {
+                sb.append("-");
+            }
+        }
+        sb.append("+\n");
+    }
+
 
     private static int[] findColumnWidths(String[][] input) {
         int[] cellWidths = new int[input[0].length];

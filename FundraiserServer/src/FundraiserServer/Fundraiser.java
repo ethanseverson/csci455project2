@@ -3,7 +3,7 @@ package FundraiserServer;
 import java.time.LocalDate;
 import java.util.ArrayList;
 
-public class Fundraiser {
+public class Fundraiser implements Comparable<Fundraiser>{
     private String eventName;
     private double targetAmount;
     private LocalDate deadline;
@@ -50,8 +50,25 @@ public class Fundraiser {
         this.donationLog = donationLog;
     }
 
-    // Method to add a donation
     public void addDonation(Donation donation) {
         this.donationLog.add(donation);
     }
+    
+    public boolean isCurrent() {
+    return LocalDate.now().isBefore(deadline) || LocalDate.now().isEqual(deadline);
+    }
+    
+    public double getAmountRaised() {
+        double total = 0;
+        for (Donation donation : donationLog) {
+            total += donation.getAmount();
+        }
+    return total;
+    }
+    
+    @Override
+    public int compareTo(Fundraiser other) {
+        return this.getDeadline().compareTo(other.getDeadline());
+    }
+   
 }

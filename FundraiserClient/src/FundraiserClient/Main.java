@@ -15,6 +15,7 @@ public class Main {
         DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 
         System.out.println("Connecting to server...");
+        System.out.println("Type exit or quit at any time to disconect.");
 
         while (true) {
             response = inFromServer.readLine();
@@ -25,6 +26,10 @@ public class Main {
             if ("<<READY>>".equals(response)) {
                 System.out.print(">> ");
                 sentence = inFromUser.readLine();
+                if (sentence.equalsIgnoreCase("exit") || sentence.equalsIgnoreCase("quit")) {
+                    System.out.println("Disconnected from server.");
+                    break;
+                }
                 outToServer.writeBytes(sentence + '\n');
                 outToServer.flush();
             } else {

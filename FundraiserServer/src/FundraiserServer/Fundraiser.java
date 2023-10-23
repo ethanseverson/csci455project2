@@ -70,5 +70,10 @@ public class Fundraiser implements Comparable<Fundraiser>{
     public int compareTo(Fundraiser other) {
         return this.getDeadline().compareTo(other.getDeadline());
     }
+    
+    @Override
+    public String toString () {
+        return String.format("Name: %s, TA: $%.2f, Deadline: %s", this.eventName, this.targetAmount, this.deadline.toString());
+    }
    
 }

@@ -33,9 +33,8 @@ public class ClientInstance implements Runnable {
     
     @Override
     public void run() {
-            System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort
-                    + " >> Connected to server.");
-
+        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort
+            + " >> Connected to server.");
 
         try {
             outToClient = new DataOutputStream(clientSocket.getOutputStream());
@@ -43,15 +42,16 @@ public class ClientInstance implements Runnable {
                     + " >> Starting client instance...");
             displayWelcome();
             
+            //Main loop
             while (true) {
-                if (!mainMenu()) break;
+                if (!mainMenu()) break; //If main menu returns 2, exit
             }
-
+            //Exit gracefully
             outToClient.close();
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Connection closed.");
             
-        } catch (SocketException se) {
+        } catch (SocketException se) { //Catch when client closes ungracefully
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort
                 + " >> Connection closed ungracefully.");
         } catch (IOException ex) {
@@ -59,13 +59,13 @@ public class ClientInstance implements Runnable {
         }
     }
     
-    private boolean mainMenu() throws IOException {
+    private boolean mainMenu() throws IOException { //Top level main menu
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Displaying current fundraisers main menu.");
 
         int count = displayFundraisers(true); //Display current fundraisers
 
-        displayMainOptions();
+        displayMainOptions(); //Show options that user can pick
 
         int result;
         do {
@@ -76,10 +76,10 @@ public class ClientInstance implements Runnable {
             //Wait for User Input
             String userInput = in.readLine();
 
-            result = handleMainUserInput(userInput, count); // Returns 0 if valid input, 1 if need retry, 2 if break.
+            result = handleMainUserInput(userInput, count); // Returns 0 if valid input, 1 if need retry, 2 if exiting.
             if (result == 2) return false;
-        } while (result != 0);
-        return true;
+        } while (result != 0); //Retry if invalid input
+        return true; //Exit successfully, open main menu again
     }
     
     private boolean pastMenu() throws IOException {
@@ -98,11 +98,11 @@ public class ClientInstance implements Runnable {
 
             result = handlePastUserInput(userInput, count); // Returns 0 if valid input, 1 if need retry, 2 if exit
             if (result == 2) return false;
-        } while (result != 0);
-        return true;
+        } while (result != 0); //Retry if invalid input
+        return true; //Exit pat menu
     }
 
-    private void displayWelcome() throws IOException {
+    private void displayWelcome() throws IOException { //Welcome message, shows to client on startup
         SimpleDateFormat sdf = new SimpleDateFormat("hh:mm:ss a");
         String currentTime = sdf.format(new Date());
         outToClient.writeBytes("You are connected to " + clientSocket.getRemoteSocketAddress().toString().substring(1) + ". The current time is " + currentTime + '\n');
@@ -113,57 +113,69 @@ public class ClientInstance implements Runnable {
         String title = isCurrent ? "Current Fundraisers" : "Past Fundraisers";
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Grabbing " + title.toLowerCase() + " for table.");
-        int indexCounter = 1;
+        int indexCounter = 1; //Start the counter for the table
         StringBuilder sb = new StringBuilder();
-        ArrayList<String[]> fundraisers = new ArrayList<>();
+        ArrayList<String[]> fundraisersStr = new ArrayList<>(); //ArrayList for string arrays for table
         
-        // Sort the fundraisers by deadline
-        Main.fundraisers.sort(Comparator.comparing(Fundraiser::getDeadline));
-        
-        for (Fundraiser fundraiser : Main.fundraisers) {
-            if (fundraiser.isCurrent() == isCurrent) {
-                String[] row = {
-                    String.format("%d", indexCounter++),
-                    fundraiser.getEventName(),
-                    String.format("$%.2f", fundraiser.getAmountRaised()),
-                    String.format("$%.2f", fundraiser.getTargetAmount()),
-                    fundraiser.getDeadline().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")),
-                    String.format("%d", fundraiser.getDonationLog().size())
-                };
-                fundraisers.add(row);
-            }
-        }
-        
-        if (fundraisers.isEmpty()) {
-            String[][] message = {{"There are no " + title.toLowerCase()}};
-            ASCIITableCreator.print(message, 2, false, title, null, false, false, sb);
-        } else {
-            String[][] fundraisersArray = fundraisers.toArray(new String[0][]);
-            ASCIITableCreator.print(fundraisersArray, 2, true, title, new String[] {"#", "Event Name", "Amount Raised", "Target Amount", "Deadline", "Donations"}, true, false, sb);
-        }
+        synchronized(Main.fundraisers) {
+            // Sort the fundraisers by deadline
+            Main.fundraisers.sort(Comparator.comparing(Fundraiser::getDeadline));
 
-        outToClient.writeBytes(sb.toString());
-        outToClient.flush();
-        return indexCounter - 1;
+            for (Fundraiser fundraiser : Main.fundraisers) {
+                if (fundraiser.isCurrent() == isCurrent) { //For every fundraiser that isCurrent
+                    String[] row = { //Formatted data for table
+                        String.format("%d", indexCounter++),
+                        fundraiser.getEventName(),
+                        String.format("$%.2f", fundraiser.getAmountRaised()),
+                        String.format("$%.2f", fundraiser.getTargetAmount()),
+                        fundraiser.getDeadline().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")),
+                        String.format("%d", fundraiser.getDonationLog().size())
+                    };
+                    fundraisersStr.add(row); //Add entry to list
+                }
+            }
+
+            if (fundraisersStr.isEmpty()) { //If there are no fundraisers
+                String[][] message = {{"There are no " + title.toLowerCase()}};
+                ASCIITableCreator.print(message, 2, false, title, null, false, false, sb);
+            } else { //If there are, print the data
+                String[][] fundraisersArray = fundraisersStr.toArray(new String[0][]);
+                ASCIITableCreator.print(fundraisersArray, 2, true, title, new String[] {"#", "Event Name", "Amount Raised", "Target Amount", "Deadline", "Donations"}, true, false, sb);
+            }
+            outToClient.writeBytes(sb.toString()); //Push the table to client
+            outToClient.flush();
+            return indexCounter - 1; //Return the amount of entries in the cable
+        }
     }
 
     private void displayMainOptions() throws IOException {
         String options = "Type \"create\" to create a new fundraiser.";
         boolean hasPastFundraisers = false;
-
-        if (!Main.fundraisers.isEmpty()) {
+        boolean hasCurrentFundraisers = false;
+        
+        synchronized (Main.fundraisers) {
+            if (!Main.fundraisers.isEmpty()) { //Check if there are any fundraisers
             for (Fundraiser pfr : Main.fundraisers) {  // Now directly iterating through the list
-                if (!pfr.isCurrent()) {
-                    hasPastFundraisers = true;
-                    break;
+                 {
+                    if (!hasPastFundraisers && !pfr.isCurrent()) { //Check if there are any past fundraisers
+                        hasPastFundraisers = true;
+                    }
+                    if (!hasCurrentFundraisers && pfr.isCurrent()) { //Check if there are any current fundraisers
+                        hasCurrentFundraisers = true;
+                    } 
+                    if (hasPastFundraisers && hasCurrentFundraisers) break; //Since it found both past and current, no need to keep checking
                 }
             }
 
-            if (hasPastFundraisers) {
+            if (hasPastFundraisers) {  //If there are past fundraisers
                 options += "\nType \"past\" to view past fundraisers.";
             }
-            options += "\nOtherwise, type the number corresponding to the fundraiser above to open it.";
+            if (hasCurrentFundraisers) { //If there are fundraisers
+                 options += "\nOtherwise, type the number corresponding to the fundraiser above to open it."; 
+            }
+            }
         }
+
         outToClient.writeBytes(options + '\n');
         outToClient.flush();
     }
@@ -171,19 +183,20 @@ public class ClientInstance implements Runnable {
     private void displayPastOptions() throws IOException {
         String options = "Type \"back\" or \"menu\" to go back to current fundraisers.";
         boolean hasPastFundraisers = false;
-
-        if (!Main.fundraisers.isEmpty()) {
-            for (Fundraiser pfr : Main.fundraisers) {  // Now directly iterating through the list
-                if (!pfr.isCurrent()) {
-                    hasPastFundraisers = true;
-                    break;
+        synchronized (Main.fundraisers) {
+            if (!Main.fundraisers.isEmpty()) {
+                for (Fundraiser pfr : Main.fundraisers) {  // Now directly iterating through the list
+                    if (!pfr.isCurrent()) {
+                        hasPastFundraisers = true;
+                        break;
+                    }
                 }
-            }
 
-            if (hasPastFundraisers) {
-                options += "\nOtherwise, type the number corresponding to the fundraiser above to open it.";
+                if (hasPastFundraisers) {
+                    options += "\nOtherwise, type the number corresponding to the fundraiser above to open it.";
+                }
+                //options += "\nOtherwise, type the number corresponding to the fundraiser above to open it.";
             }
-            //options += "\nOtherwise, type the number corresponding to the fundraiser above to open it.";
         }
         outToClient.writeBytes(options + '\n');
         outToClient.flush();
@@ -257,42 +270,41 @@ public class ClientInstance implements Runnable {
         }
     }
     
-    private int viewFundraiser(int index, boolean isCurrent) throws IOException {
+    private synchronized int viewFundraiser(int index, boolean isCurrent) throws IOException {
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
             " >> Viewing fundraiser information for index " + index + ", isCurrent: " + isCurrent);
+        
+        //Before starting, we need to filter either past or current fundraisers based on isCurrent
         ArrayList<Fundraiser> filteredFundraisers = new ArrayList<>();
         for (Fundraiser fundraiser : Main.fundraisers) {
             if (fundraiser.isCurrent() == isCurrent) {
                 filteredFundraisers.add(fundraiser);
             }
         }
-
+        //Check if the index provided matches from the filtered ArrayList
         if (index < 0 || index >= filteredFundraisers.size()) {
             outToClient.writeBytes("Invalid selection. Please try again.\n");
             outToClient.flush();
         }
-
+        //Since it does, store the fundraiser requested to view
         Fundraiser fundraiser = filteredFundraisers.get(index);
-
+        
+        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
+            " >> Grabbed fundraiser: " + fundraiser.getEventName());
+        
+        //Everything in the loop below is for user input
         int result = 1;
-        boolean printTable = true;
+        boolean printTable = true; //If the donations table should be printed
         do {
             if (printTable) {
-                ArrayList<Donation> donations = fundraiser.getDonationLog();
+                ArrayList<Donation> donations = fundraiser.getDonationLog();  //Grab the donations from the fundraiser
                 StringBuilder sb = new StringBuilder();
-
-                System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-                    " >> Grabbed fundraiser: " + fundraiser.getEventName());
-
+                //Like above for listing the fundraiser list, print out donations in a table
                 if (donations.isEmpty()) {
-                    System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-                        " >> " + fundraiser.getEventName() + " contains no donation information.");
                     String[][] message = {{"There are no donations for this fundraiser."}};
                     ASCIITableCreator.print(message, 1, false, "Fundraiser: " + fundraiser.getEventName(),
                             null, false, false, sb);
                 } else {
-                    System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-                        " >> " + fundraiser.getEventName() + " contains " + donations.size() + " donations totaling in " + String.format("$%.2f", fundraiser.getAmountRaised()));
                     ArrayList<String[]> rows = new ArrayList<>();
                     int counter = 1;
                     for (Donation donation : donations) {
@@ -312,11 +324,11 @@ public class ClientInstance implements Runnable {
                 }
                 outToClient.writeBytes(sb.toString());
                 outToClient.flush();
-                printTable = false;
+                printTable = false; //Since the table is already printed, don't print again next time
             }
-            outToClient.writeBytes( "Type \"back\" to go back to fundraisers list.\n"
+            outToClient.writeBytes( "Type \"back\" to go back to fundraisers list.\n" //Display options
                     + "Type \"remove\" if you want to delete this fundraiser.\n");
-            if (fundraiser.isCurrent()) outToClient.writeBytes("Type \"donate\" to donate to this fundraiser.\n");
+            if (fundraiser.isCurrent()) outToClient.writeBytes("Type \"donate\" to donate to this fundraiser.\n"); //Only show donate if the fundraiser is current
             outToClient.writeBytes("<<READY>>\n");
             outToClient.flush();
 
@@ -354,7 +366,9 @@ public class ClientInstance implements Runnable {
         //2 - Exit App
         //5 - Goto Main
         //6 - Goto Past
-        if (userInput == null) {
+        //7 - Fundraiser not removed
+        //8 - Fundraiser removed
+        if (userInput == null) {  //This usually happens when the client wants to exit
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Since user input was null, thread will close.");
             return 2;
@@ -366,37 +380,39 @@ public class ClientInstance implements Runnable {
             }
         }
         if (userInput.equalsIgnoreCase("menu")) {
-            return 5;
+            return 5; //Goto Main Menu
         } else if (userInput.equalsIgnoreCase("past")) {
-            return 6;
+            return 6; //Goto Past Menu
         }
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
             " >> User is viewing fundraiser: \"" + fundraiser.getEventName() + "\"");
-        if (userInput.equalsIgnoreCase("remove")) {
+        if (userInput.equalsIgnoreCase("remove")) { //If user wants to remove fundraiser
             outToClient.writeBytes("Removing a fundraiser is FINAL. Are you sure you want to continue?.\n"
                     + "Type \"confirm\" if you want to delete, any other input will cancel.\n"
                     + "<<READY>>\n");
             outToClient.flush();
             String userInputConfirm = in.readLine();
-            if (userInputConfirm == null) {
+            if (userInputConfirm == null) { //Check if client exits
                 System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                     " >> Since user input was null, thread will close.");
                 return 2;
-            } else if (userInputConfirm.equalsIgnoreCase("confirm")) {
+            } else if (userInputConfirm.equalsIgnoreCase("confirm")) { //If user wants to remove fundraiser
                 boolean wasCurrent = true;
                 if (!fundraiser.isCurrent()) wasCurrent = false;
                 System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                     " >> User deleted fundraiser: \"" + fundraiser.getEventName() + "\"");
-                if (Main.fundraisers.remove(fundraiser)) {
+                synchronized (Main.fundraisers) {
+                    if (Main.fundraisers.remove(fundraiser)) {
                     outToClient.writeBytes("Fundraiser removed.\n");
                     outToClient.flush();
                     if (!wasCurrent) return 6;
-                    return 5;
+                        return 5;
+                    }
                 }
             }
         outToClient.writeBytes("The fundraiser has not been removed.\n");
         outToClient.flush();
-        return 7;
+        return 7;  //Fundraiser not removed
         } else if (userInput.equalsIgnoreCase("donate")) {
             return 0;
         } else {
@@ -442,7 +458,10 @@ public class ClientInstance implements Runnable {
 
         // Create fundraiser object and add to ArrayList
         Fundraiser f = new Fundraiser(name, targetAmount, deadline);
-        Main.fundraisers.add(f);
+        synchronized (Main.fundraisers) {
+            Main.fundraisers.add(f);
+        }
+        
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
             " >> User created fundraiser: " + f.toString());
         return 0;
@@ -499,7 +518,7 @@ public class ClientInstance implements Runnable {
                 return new UserInputResult(3, null);
             }
 
-            if (type == 0) {
+            if (type == 0) { //Name input
                 if (!userInput.trim().isEmpty() && userInput.trim().length() < 100) {
                     return new UserInputResult(0, userInput.trim());
                 }
@@ -508,14 +527,14 @@ public class ClientInstance implements Runnable {
                 } else {
                     outToClient.writeBytes("Please keep the name fewer than 100 characters long. You used " + userInput.trim().length() + " characters.\n");
                 }
-            } else if (type == 1) {
+            } else if (type == 1) { //$ input
                 try {
                     double roundedValue = Math.round(Double.parseDouble(userInput) * 100.0) / 100.0;
                     return new UserInputResult(0, roundedValue);
                 } catch (NumberFormatException e) {
                     outToClient.writeBytes("The number you entered was not valid. Please try again.\n");
                 }
-            } else if (type == 2) {
+            } else if (type == 2) {//Date input
                 try {
                     LocalDate enteredDate = LocalDate.parse(userInput);
                     if (enteredDate.isBefore(LocalDate.now())) {

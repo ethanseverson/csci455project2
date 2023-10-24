@@ -30,6 +30,17 @@ public class ClientInstance implements Runnable {
         this.clientPort = this.clientSocket.getPort();
     }
     
+    private static class ObjResult { //Some methods use this to return an object and a return status
+        int returnCode;
+        Object value;
+
+        ObjResult(int returnCode, Object value) {
+            this.returnCode = returnCode;
+            this.value = value;
+        }
+    }
+    
+    
     
     @Override
     public void run() {
@@ -63,10 +74,18 @@ public class ClientInstance implements Runnable {
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Displaying current fundraisers main menu.");
 
-        int count = displayFundraisers(true); //Display current fundraisers
-
+        ObjResult objr = displayFundraisers(true); //Display current fundraisers
+        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
+                " >> Yo1.");
+        int count = objr.returnCode;
+                System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
+                " >> Yo1. Returns???");
+        String[] fundraiserTitles = (objr.value != null) ? (String[]) objr.value : new String[0];
+        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
+                " >> Yo2.");
         displayMainOptions(); //Show options that user can pick
-
+        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
+                " >> Yo3.");
         int result;
         do {
             // Notify the client that it's ready for the next input
@@ -76,7 +95,7 @@ public class ClientInstance implements Runnable {
             //Wait for User Input
             String userInput = in.readLine();
 
-            result = handleMainUserInput(userInput, count); // Returns 0 if valid input, 1 if need retry, 2 if exiting.
+            result = handleMainUserInput(userInput, count, fundraiserTitles); // Returns 0 if valid input, 1 if need retry, 2 if exiting.
             if (result == 2) return false;
         } while (result != 0); //Retry if invalid input
         return true; //Exit successfully, open main menu again
@@ -85,7 +104,10 @@ public class ClientInstance implements Runnable {
     private boolean pastMenu() throws IOException {
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Displaying past fundraisers menu.");
-        int count = displayFundraisers(false); //Display past fundraisers
+        ObjResult objr = displayFundraisers(false); //Display past fundraisers
+        int count = objr.returnCode;
+        String[] fundraiserTitles = (String[]) objr.value;
+        
         displayPastOptions();
         int result;
         do {
@@ -96,7 +118,7 @@ public class ClientInstance implements Runnable {
             //Wait for User Input
             String userInput = in.readLine();
 
-            result = handlePastUserInput(userInput, count); // Returns 0 if valid input, 1 if need retry, 2 if exit
+            result = handlePastUserInput(userInput, count, fundraiserTitles); // Returns 0 if valid input, 1 if need retry, 2 if exit
             if (result == 2) return false;
         } while (result != 0); //Retry if invalid input
         return true; //Exit pat menu
@@ -109,13 +131,14 @@ public class ClientInstance implements Runnable {
         outToClient.flush();
     }
 
-    private int displayFundraisers(boolean isCurrent) throws IOException {
+    private ObjResult displayFundraisers(boolean isCurrent) throws IOException {
         String title = isCurrent ? "Current Fundraisers" : "Past Fundraisers";
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Grabbing " + title.toLowerCase() + " for table.");
         int indexCounter = 1; //Start the counter for the table
         StringBuilder sb = new StringBuilder();
         ArrayList<String[]> fundraisersStr = new ArrayList<>(); //ArrayList for string arrays for table
+        ArrayList<String> fundraisersTitles = new ArrayList<>(); //Arraylist to store event names
         
         synchronized(Main.fundraisers) {
             // Sort the fundraisers by deadline
@@ -132,6 +155,7 @@ public class ClientInstance implements Runnable {
                         String.format("%d", fundraiser.getDonationLog().size())
                     };
                     fundraisersStr.add(row); //Add entry to list
+                    fundraisersTitles.add(fundraiser.getEventName()); 
                 }
             }
 
@@ -144,7 +168,9 @@ public class ClientInstance implements Runnable {
             }
             outToClient.writeBytes(sb.toString()); //Push the table to client
             outToClient.flush();
-            return indexCounter - 1; //Return the amount of entries in the cable
+            int count = indexCounter - 1;
+            String[] fundraiserTitlesArr = fundraisersTitles.toArray(new String[0]); //This array holds the table the user is viewing to make sure the user is navigated correctly
+            return new ObjResult(count, fundraiserTitlesArr); //Return the amount of entries in the cable, with the fundraisersTitles
         }
     }
 
@@ -202,7 +228,7 @@ public class ClientInstance implements Runnable {
         outToClient.flush();
     }
 
-    private int handleMainUserInput(String userInput, int count) throws IOException {
+    private int handleMainUserInput(String userInput, int count, String[] fundraisersTitles) throws IOException {
         if (userInput == null) {
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Since user input was null, thread will close.");
@@ -217,7 +243,25 @@ public class ClientInstance implements Runnable {
             try {
                 int index = Integer.parseInt(userInput) - 1;  // Convert to 0-based index
                 if (index >= 0 && index < count) {
-                    int result = viewFundraiser(index, true);
+                    String eventName = fundraisersTitles[index];
+                    Fundraiser targetFundraiser = null;
+                    //Find fundraiser by event name
+                    synchronized (Main.fundraisers) {
+                        for (Fundraiser fundraiser : Main.fundraisers) {
+                            if (fundraiser.getEventName().equals(eventName)) {
+                                targetFundraiser = fundraiser;
+                                break; 
+                            }
+                        }
+                    }
+                    int result;
+                    if (targetFundraiser != null) {
+                        result = viewFundraiser(targetFundraiser);
+                    } else {
+                        outToClient.writeBytes("Unable to find that fundraiser. Please try again.\n");
+                        outToClient.flush();
+                        return 1;
+                    }
                     if (result == 6) {
                         if (!pastMenu()) return 2;
                         return 0;
@@ -238,7 +282,7 @@ public class ClientInstance implements Runnable {
         }
     }
     
-    private int handlePastUserInput(String userInput, int count) throws IOException {
+    private int handlePastUserInput(String userInput, int count, String[] fundraisersTitles) throws IOException {
         if (userInput == null) {
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Since user input was null, thread will close.");
@@ -249,7 +293,25 @@ public class ClientInstance implements Runnable {
             try {
                 int index = Integer.parseInt(userInput) - 1;  // Convert to 0-based index
                 if (index >= 0 && index < count) {
-                    int result = viewFundraiser(index, false);
+                    String eventName = fundraisersTitles[index];
+                    Fundraiser targetFundraiser = null;
+                    //Find fundraiser by event name
+                    synchronized (Main.fundraisers) {
+                        for (Fundraiser fundraiser : Main.fundraisers) {
+                            if (fundraiser.getEventName().equals(eventName)) {
+                                targetFundraiser = fundraiser;
+                                break; 
+                            }
+                        }
+                    }
+                    int result;
+                    if (targetFundraiser != null) {
+                        result = viewFundraiser(targetFundraiser);
+                    } else {
+                        outToClient.writeBytes("Unable to find that fundraiser. Please try again.\n");
+                        outToClient.flush();
+                        return 1;
+                    }
                     if (result == 6) {
                         if (!pastMenu()) return 2;
                         return 0;
@@ -270,27 +332,9 @@ public class ClientInstance implements Runnable {
         }
     }
     
-    private synchronized int viewFundraiser(int index, boolean isCurrent) throws IOException {
+    private synchronized int viewFundraiser(Fundraiser fundraiser) throws IOException {
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-            " >> Viewing fundraiser information for index " + index + ", isCurrent: " + isCurrent);
-        
-        //Before starting, we need to filter either past or current fundraisers based on isCurrent
-        ArrayList<Fundraiser> filteredFundraisers = new ArrayList<>();
-        for (Fundraiser fundraiser : Main.fundraisers) {
-            if (fundraiser.isCurrent() == isCurrent) {
-                filteredFundraisers.add(fundraiser);
-            }
-        }
-        //Check if the index provided matches from the filtered ArrayList
-        if (index < 0 || index >= filteredFundraisers.size()) {
-            outToClient.writeBytes("Invalid selection. Please try again.\n");
-            outToClient.flush();
-        }
-        //Since it does, store the fundraiser requested to view
-        Fundraiser fundraiser = filteredFundraisers.get(index);
-        
-        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-            " >> Grabbed fundraiser: " + fundraiser.getEventName());
+            " >> Viewing fundraiser information for " + fundraiser.getEventName());
         
         //Everything in the loop below is for user input
         int result = 1;
@@ -422,29 +466,39 @@ public class ClientInstance implements Runnable {
         return 1;
     }
     
-    private static class UserInputResult {
-        int returnCode;
-        Object value;
-
-        UserInputResult(int returnCode, Object value) {
-            this.returnCode = returnCode;
-            this.value = value;
-        }
-    }
-    
     private int createFundraiser() throws IOException {
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
             " >> User starting to create fundraiser.");
         
-        UserInputResult result;
+        ObjResult result;
         
         outToClient.writeBytes("Type \"cancel\" at any time to return back to main menu.\n");
         outToClient.flush();
 
         // Handle name input
-        result = handleUserInput("Please enter the name of the fundraiser.", 0);
-        if (result.returnCode != 0) return result.returnCode;
-        String name = (String) result.value;
+        String name;
+        boolean nameIsUnique;
+        do {
+            nameIsUnique = true;
+
+            result = handleUserInput("Please enter the name of the fundraiser.", 0);
+            if (result.returnCode != 0) return result.returnCode;
+            name = (String) result.value;
+
+            synchronized (Main.fundraisers) {
+                // Check for duplicate names
+                for (Fundraiser existingFundraiser : Main.fundraisers) {
+                    if (existingFundraiser.getEventName().equals(name)) {
+                        outToClient.writeBytes("A fundraiser with this name already exists. Please choose a different name.\n");
+                        outToClient.flush();
+                        nameIsUnique = false;
+                        break;
+                    }
+                }
+            }
+
+        } while (!nameIsUnique);
+
 
         // Handle target amount input
         result = handleUserInput("Please enter the target amount for the fundraiser. ($)", 1);
@@ -468,7 +522,7 @@ public class ClientInstance implements Runnable {
     }
     
     private int addDonationToFundraiser(Fundraiser fundraiser) throws IOException {
-        UserInputResult result;
+        ObjResult result;
         
         if (!fundraiser.isCurrent()) {
             outToClient.writeBytes("This fundraiser is no longer accepting donations\nThank you for your interest.\n");
@@ -506,21 +560,21 @@ public class ClientInstance implements Runnable {
     }
 
 
-   private UserInputResult handleUserInput(String prompt, int type) throws IOException {
+   private ObjResult handleUserInput(String prompt, int type) throws IOException {
         while (true) {
             outToClient.writeBytes(prompt + "\n<<READY>>\n");
             outToClient.flush();
             String userInput = in.readLine();
             if (userInput == null) {
-                return new UserInputResult(2, null);
+                return new ObjResult(2, null);
             }
             if (userInput.equalsIgnoreCase("cancel")) {
-                return new UserInputResult(3, null);
+                return new ObjResult(3, null);
             }
 
             if (type == 0) { //Name input
                 if (!userInput.trim().isEmpty() && userInput.trim().length() < 100) {
-                    return new UserInputResult(0, userInput.trim());
+                    return new ObjResult(0, userInput.trim());
                 }
                 if (userInput.trim().isEmpty()) {
                     outToClient.writeBytes("Name cannot be empty. Please try again.\n");
@@ -530,7 +584,7 @@ public class ClientInstance implements Runnable {
             } else if (type == 1) { //$ input
                 try {
                     double roundedValue = Math.round(Double.parseDouble(userInput) * 100.0) / 100.0;
-                    return new UserInputResult(0, roundedValue);
+                    return new ObjResult(0, roundedValue);
                 } catch (NumberFormatException e) {
                     outToClient.writeBytes("The number you entered was not valid. Please try again.\n");
                 }
@@ -540,7 +594,7 @@ public class ClientInstance implements Runnable {
                     if (enteredDate.isBefore(LocalDate.now())) {
                         outToClient.writeBytes("Warning: The date you entered is in the past.\n");
                     }
-                    return new UserInputResult(0, enteredDate);
+                    return new ObjResult(0, enteredDate);
                 } catch (DateTimeParseException e) {
                     outToClient.writeBytes("The date you entered was not valid. Please use format yyyy-mm-dd.\n");
                 }

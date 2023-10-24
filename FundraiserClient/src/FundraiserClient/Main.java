@@ -25,7 +25,8 @@ public class Main {
 
         // Prompt and validate server IP and port
         while (true) {
-            System.out.print(">> Enter the server IP: ");
+            System.out.println("Enter the server IP:");
+            System.out.print(">> ");
             serverIP = inFromUser.readLine();
             if (isValidIP(serverIP)) {
                 break;
@@ -34,7 +35,8 @@ public class Main {
         }
 
         while (true) {
-            System.out.print(">> Enter the server port: ");
+            System.out.println("Enter the port:");
+            System.out.print(">> ");
             try {
                 serverPort = Integer.parseInt(inFromUser.readLine());
                 if (serverPort >= 0 && serverPort <= 65535) {

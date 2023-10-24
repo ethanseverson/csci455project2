@@ -40,8 +40,6 @@ public class ClientInstance implements Runnable {
         }
     }
     
-    
-    
     @Override
     public void run() {
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort
@@ -51,12 +49,14 @@ public class ClientInstance implements Runnable {
             outToClient = new DataOutputStream(clientSocket.getOutputStream());
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort
                     + " >> Starting client instance...");
-            displayWelcome();
+            displayWelcome(); //Display connection info and time
             
             //Main loop
             while (true) {
-                if (!mainMenu()) break; //If main menu returns 2, exit
+                if (!mainMenu()) break; //If main menu returns 2, exit program
             }
+            //
+            
             //Exit gracefully
             outToClient.close();
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
@@ -65,8 +65,9 @@ public class ClientInstance implements Runnable {
         } catch (SocketException se) { //Catch when client closes ungracefully
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort
                 + " >> Connection closed ungracefully.");
-        } catch (IOException ex) {
-            Logger.getLogger(ClientInstance.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) { //Required IO exception
+            System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort
+                + " >> IO Exception!");
         }
     }
     
@@ -75,17 +76,9 @@ public class ClientInstance implements Runnable {
                 " >> Displaying current fundraisers main menu.");
 
         ObjResult objr = displayFundraisers(true); //Display current fundraisers
-        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-                " >> Yo1.");
         int count = objr.returnCode;
-                System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-                " >> Yo1. Returns???");
         String[] fundraiserTitles = (objr.value != null) ? (String[]) objr.value : new String[0];
-        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-                " >> Yo2.");
         displayMainOptions(); //Show options that user can pick
-        System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
-                " >> Yo3.");
         int result;
         do {
             // Notify the client that it's ready for the next input
@@ -121,7 +114,7 @@ public class ClientInstance implements Runnable {
             result = handlePastUserInput(userInput, count, fundraiserTitles); // Returns 0 if valid input, 1 if need retry, 2 if exit
             if (result == 2) return false;
         } while (result != 0); //Retry if invalid input
-        return true; //Exit pat menu
+        return true; //Exit past menu
     }
 
     private void displayWelcome() throws IOException { //Welcome message, shows to client on startup
@@ -132,17 +125,16 @@ public class ClientInstance implements Runnable {
     }
 
     private ObjResult displayFundraisers(boolean isCurrent) throws IOException {
-        String title = isCurrent ? "Current Fundraisers" : "Past Fundraisers";
+        String title = isCurrent ? "Current Fundraisers" : "Past Fundraisers"; //Title of table
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Grabbing " + title.toLowerCase() + " for table.");
         int indexCounter = 1; //Start the counter for the table
         StringBuilder sb = new StringBuilder();
         ArrayList<String[]> fundraisersStr = new ArrayList<>(); //ArrayList for string arrays for table
-        ArrayList<String> fundraisersTitles = new ArrayList<>(); //Arraylist to store event names
+        ArrayList<String> fundraisersTitles = new ArrayList<>(); //Arraylist to store event names for menu selection
         
         synchronized(Main.fundraisers) {
-            // Sort the fundraisers by deadline
-            Main.fundraisers.sort(Comparator.comparing(Fundraiser::getDeadline));
+            Main.fundraisers.sort(Comparator.comparing(Fundraiser::getDeadline)); // Sort the fundraisers by deadline
 
             for (Fundraiser fundraiser : Main.fundraisers) {
                 if (fundraiser.isCurrent() == isCurrent) { //For every fundraiser that isCurrent
@@ -155,7 +147,7 @@ public class ClientInstance implements Runnable {
                         String.format("%d", fundraiser.getDonationLog().size())
                     };
                     fundraisersStr.add(row); //Add entry to list
-                    fundraisersTitles.add(fundraiser.getEventName()); 
+                    fundraisersTitles.add(fundraiser.getEventName()); //Keep track of what the user sees on screen
                 }
             }
 
@@ -168,7 +160,7 @@ public class ClientInstance implements Runnable {
             }
             outToClient.writeBytes(sb.toString()); //Push the table to client
             outToClient.flush();
-            int count = indexCounter - 1;
+            int count = indexCounter - 1; //Amount of entries in the table
             String[] fundraiserTitlesArr = fundraisersTitles.toArray(new String[0]); //This array holds the table the user is viewing to make sure the user is navigated correctly
             return new ObjResult(count, fundraiserTitlesArr); //Return the amount of entries in the cable, with the fundraisersTitles
         }
@@ -229,6 +221,9 @@ public class ClientInstance implements Runnable {
     }
 
     private int handleMainUserInput(String userInput, int count, String[] fundraisersTitles) throws IOException {
+        //Returns 0 if valid entry
+        //Returns 1 if invalid
+        //Returns 2 if user is exiting
         if (userInput == null) {
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Since user input was null, thread will close.");
@@ -244,16 +239,7 @@ public class ClientInstance implements Runnable {
                 int index = Integer.parseInt(userInput) - 1;  // Convert to 0-based index
                 if (index >= 0 && index < count) {
                     String eventName = fundraisersTitles[index];
-                    Fundraiser targetFundraiser = null;
-                    //Find fundraiser by event name
-                    synchronized (Main.fundraisers) {
-                        for (Fundraiser fundraiser : Main.fundraisers) {
-                            if (fundraiser.getEventName().equals(eventName)) {
-                                targetFundraiser = fundraiser;
-                                break; 
-                            }
-                        }
-                    }
+                    Fundraiser targetFundraiser = findFundraiserByName(eventName);
                     int result;
                     if (targetFundraiser != null) {
                         result = viewFundraiser(targetFundraiser);
@@ -283,6 +269,9 @@ public class ClientInstance implements Runnable {
     }
     
     private int handlePastUserInput(String userInput, int count, String[] fundraisersTitles) throws IOException {
+        //Returns 0 if valid entry
+        //Returns 1 if invalid
+        //Returns 2 if user is exiting
         if (userInput == null) {
             System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
                 " >> Since user input was null, thread will close.");
@@ -294,16 +283,7 @@ public class ClientInstance implements Runnable {
                 int index = Integer.parseInt(userInput) - 1;  // Convert to 0-based index
                 if (index >= 0 && index < count) {
                     String eventName = fundraisersTitles[index];
-                    Fundraiser targetFundraiser = null;
-                    //Find fundraiser by event name
-                    synchronized (Main.fundraisers) {
-                        for (Fundraiser fundraiser : Main.fundraisers) {
-                            if (fundraiser.getEventName().equals(eventName)) {
-                                targetFundraiser = fundraiser;
-                                break; 
-                            }
-                        }
-                    }
+                    Fundraiser targetFundraiser = findFundraiserByName(eventName);
                     int result;
                     if (targetFundraiser != null) {
                         result = viewFundraiser(targetFundraiser);
@@ -331,6 +311,18 @@ public class ClientInstance implements Runnable {
             }
         }
     }
+    
+    private Fundraiser findFundraiserByName(String eventName) { 
+    synchronized (Main.fundraisers) {
+        for (Fundraiser fundraiser : Main.fundraisers) {
+            if (fundraiser.getEventName().equals(eventName)) {
+                return fundraiser; //Return first (and only) match
+            }
+        }
+    }
+    return null;
+    }
+
     
     private synchronized int viewFundraiser(Fundraiser fundraiser) throws IOException {
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +

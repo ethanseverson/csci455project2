@@ -573,10 +573,14 @@ public class ClientInstance implements Runnable {
                 } else {
                     outToClient.writeBytes("Please keep the name fewer than 100 characters long. You used " + userInput.trim().length() + " characters.\n");
                 }
-            } else if (type == 1) { //$ input
+            } else if (type == 1) { // $ input
                 try {
                     double roundedValue = Math.round(Double.parseDouble(userInput) * 100.0) / 100.0;
-                    return new ObjResult(0, roundedValue);
+                    if (roundedValue > 0) {  // Check for positive amount
+                        return new ObjResult(0, roundedValue);
+                    } else {
+                        outToClient.writeBytes("Please enter a positive amount.\n");
+                    }
                 } catch (NumberFormatException e) {
                     outToClient.writeBytes("The number you entered was not valid. Please try again.\n");
                 }

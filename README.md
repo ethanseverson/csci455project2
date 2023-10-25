@@ -3,8 +3,8 @@ Project 1 for CSCI 455 NDSU
 
 ## Prerequisites
 
- - FundraiserServer.jar
- - FundraiserClient.jar
+ - [FundraiserServer.jar](https://github.com/ethanseverson/csci455project1/releases/download/v1.0.1/FundraiserServer.jar)
+ - [FundraiserClient.jar](https://github.com/ethanseverson/csci455project1/releases/download/v1.0.1/FundraiserClient.jar)
 
 *Java JDK is required to run Java applications, it is  recommended to use Java JDK 16 or newer.*
 

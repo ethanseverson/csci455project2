@@ -1,5 +1,6 @@
 # Fundraiser Project - User Manual
-Project 1 for CSCI 455 NDSU
+Project 2 for CSCI 455 NDSU
+UDP Version
 
 ## Prerequisites
 

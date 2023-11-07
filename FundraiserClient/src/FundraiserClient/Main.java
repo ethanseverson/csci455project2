@@ -14,85 +14,117 @@ public class Main {
         return Pattern.matches(regex, ip);
     }
 
-    public static void main(String[] args) throws Exception {
-        String sentence;
-        String response;
+    public static void main(String[] args) {
         String serverIP;
         int serverPort;
-
+        DatagramSocket clientSocket = null;
+        InetAddress IPAddress = null;
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
-        Socket clientSocket = null;
 
-        // Prompt and validate server IP and port
-        while (true) {
-            System.out.println("Enter the server IP:");
-            System.out.print(">> ");
-            serverIP = inFromUser.readLine();
-            if (isValidIP(serverIP)) {
-                break;
-            }
-            System.out.println("Invalid IP address. Please enter a valid IPv4 address.");
-        }
-
-        while (true) {
-            System.out.println("Enter the port:");
-            System.out.print(">> ");
-            try {
-                serverPort = Integer.parseInt(inFromUser.readLine());
-                if (serverPort >= 0 && serverPort <= 65535) {
-                    break;
-                }
-                System.out.println("Invalid port number. Please enter a number between 0 and 65535.");
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid port number. Please enter a number between 0 and 65535.");
-            }
-        }
-
-        int attempts = 0;
-        while (attempts < 4) {
-            try {
-                clientSocket = new Socket(serverIP, serverPort);
-                break; // Connection successful, exit loop
-            } catch (IOException e) {
-                attempts++;
-                System.out.println("Failed to connect. Attempt " + attempts + " of 4.");
-                if (attempts < 4) {
-                    Thread.sleep(1000); // Wait for 1 second before next attempt
+        while (true) { //Main loop
+            while (true) {
+                try {
+                    System.out.println("Enter the server IP:");
+                    System.out.print(">> ");
+                    serverIP = inFromUser.readLine();
+                    if (isValidIP(serverIP)) {
+                        IPAddress = InetAddress.getByName(serverIP);
+                        break;
+                    }
+                    System.out.println("Invalid IP address. Please enter a valid IPv4 address.");
+                } catch (UnknownHostException e) {
+                    System.out.println("Error with the provided IP address: " + e.getMessage());
+                } catch (IOException e) {
+                    System.out.println("Error reading from user: " + e.getMessage());
                 }
             }
-        }
 
-        if (clientSocket == null) {
-            System.out.println("Could not connect to the server after 4 attempts. Exiting.");
-            return;
-        }
-
-        System.out.println("Connecting to server...");
-        System.out.println("Type exit or quit at any time to disconnect.");
-
-        BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
-
-        while (true) {
-            response = inFromServer.readLine();
-            if (response == null) {
-                System.out.println("Server disconnected.");
-                break; // Server disconnected
-            }
-            
-            if ("<<READY>>".equals(response)) {
+            while (true) {
+                System.out.println("Enter the port:");
                 System.out.print(">> ");
-                sentence = inFromUser.readLine();
-                if (sentence.equalsIgnoreCase("exit") || sentence.equalsIgnoreCase("quit")) {
-                    System.out.println("Disconnected from server.");
-                    break;
+                try {
+                    serverPort = Integer.parseInt(inFromUser.readLine());
+                    if (serverPort >= 0 && serverPort <= 65535) {
+                        break;
+                    }
+                    System.out.println("Invalid port number. Please enter a number between 0 and 65535.");
+                } catch (NumberFormatException | IOException e) {
+                    System.out.println("Invalid port number. Please enter a number between 0 and 65535.");
                 }
-                outToServer.writeBytes(sentence + '\n');
-                outToServer.flush();
-            } else {
-                System.out.println(response);
+            }
+
+            try {
+                clientSocket = new DatagramSocket();
+                clientSocket.setSoTimeout(5000); //5 second timeout
+
+                System.out.println("Type exit or quit at any time to disconnect.");
+
+                // Send initial connection message to the server
+                String initialMessage = "<<START>>";
+                byte[] sendData = initialMessage.getBytes();
+                DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, serverPort);
+                clientSocket.send(sendPacket);
+
+                // Buffer for receiving data
+                byte[] receiveData = new byte[1024];
+
+                // Continuously listen for messages from the server
+                while (true) {
+                    DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+
+                    try {
+                        clientSocket.receive(receivePacket); // This call will block for 5 seconds if no packet is received
+                        String response = new String(receivePacket.getData(), 0, receivePacket.getLength());
+                        
+                        // Check for the <<TIMEOUT>> message
+                        if (response.contains("<<TIMEOUT>>")) {
+                            System.out.println("Sorry, your session was closed for 30 minutes of inactivity. You will need to reconnect to the server.");
+                            break;
+                        }
+
+                        // Split the response into lines
+                        String[] lines = response.split("\n");
+
+                        for (String line : lines) {
+                            line = line.trim();  // Trim to remove any leading/trailing whitespace
+
+                            if (line.contains("<<READY>>")) {
+                                System.out.print(">> ");
+                                String userInput = inFromUser.readLine();
+
+                                // Check if the user wants to exit
+                                if (userInput.equalsIgnoreCase("exit") || userInput.equalsIgnoreCase("quit")) {
+                                    String exitMessage = "<<EXIT>>";
+                                    sendData = exitMessage.getBytes();
+                                    sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, serverPort);
+                                    clientSocket.send(sendPacket);
+
+                                    System.out.println("Exiting....");
+                                    clientSocket.close();
+                                    return;
+                                }
+
+                                // Send user input to server
+                                sendData = userInput.getBytes();
+                                sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, serverPort);
+                                clientSocket.send(sendPacket);
+                            } else {
+                                System.out.println(line);
+                            }
+                        }
+                    } catch (SocketTimeoutException e) {
+                        System.out.println("No response received within 5 seconds. Please check if the server IP & port are correct then try again.");
+                        break; // Break out of the inner loop to re-prompt IP and port
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println("Error: " + e.getMessage());
+                e.printStackTrace();
+            } finally {
+                if (clientSocket != null && !clientSocket.isClosed()) {
+                    clientSocket.close();
+                }
             }
         }
-        clientSocket.close();
     }
 }

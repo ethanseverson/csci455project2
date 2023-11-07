@@ -84,7 +84,7 @@ public class Main {
             System.out.println("The UDP server is running. Listening for datagrams on port " + serverPort + ".");
 
             while (true) {
-                DatagramPacket request = new DatagramPacket(new byte[1024], 1024);
+                DatagramPacket request = new DatagramPacket(new byte[10240], 10240);
                 serverSocket.receive(request);
                 InetAddress clientIP = request.getAddress();
                 int clientPort = request.getPort();

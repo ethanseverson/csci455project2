@@ -45,12 +45,11 @@ public class ClientInstance implements Runnable {
     }
     
     private String readLineFromQueue() throws InterruptedException {
-        String message = incomingMessages.take(); // Take a message from the queue
-
         System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" 
             + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort 
             + " >> Waiting for response.");
-
+        String message = incomingMessages.take(); //Wait for incoming message
+        System.out.println(message + "-----------------");
         if (message.contains("<<EXIT>>")) {
             terminate();
             return null;
@@ -72,7 +71,7 @@ public class ClientInstance implements Runnable {
         this.clientPort = newPort;
     }
     
-    public synchronized void updateLastActiveTime() {
+    public void updateLastActiveTime() {
             this.lastActiveTime = LocalDateTime.now();
     }
     
@@ -88,11 +87,11 @@ public class ClientInstance implements Runnable {
         return this.clientIP;
     }
     
-    public synchronized void setAwaitingResumeResponse(boolean awaiting) {
+    public void setAwaitingResumeResponse(boolean awaiting) {
         this.awaitingResumeResponse = awaiting;
     }
 
-    public synchronized boolean isAwaitingResumeResponse() {
+    public boolean isAwaitingResumeResponse() {
         return this.awaitingResumeResponse;
     }
     
@@ -417,7 +416,7 @@ public class ClientInstance implements Runnable {
     
     private synchronized int viewFundraiser(Fundraiser fundraiser) throws IOException, InterruptedException {
         int result = 1;
-        boolean printTable = true; //If the donations table should be printed
+        boolean printTable = true;
         do {
             if (printTable) {
                 System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd hh:mm:ss a").format(new Date()) + "] <" + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort +
@@ -454,9 +453,10 @@ public class ClientInstance implements Runnable {
                     + "Type \"remove\" if you want to delete this fundraiser.\n");
             if (fundraiser.isCurrent()) sendResponse("Type \"donate\" to donate to this fundraiser.\n"); //Only show donate if the fundraiser is current
             sendResponse("<<READY>>\n");
+            System.out.println("Wahhdfsa");
             //Wait for User Input
             String userInput = readLineFromQueue();
-            
+            System.out.println("Hey!");
             if ("<<PRINT>>".equals(userInput)) {
                 printTable = true; // Set the flag to reprint the table
                 continue; // Skip the rest of the loop and start from the beginning

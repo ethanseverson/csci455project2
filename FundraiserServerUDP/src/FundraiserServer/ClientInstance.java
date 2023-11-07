@@ -49,7 +49,6 @@ public class ClientInstance implements Runnable {
             + Thread.currentThread().getName() + "> " + clientIP + ":" + clientPort 
             + " >> Waiting for response.");
         String message = incomingMessages.take(); //Wait for incoming message
-        System.out.println(message + "-----------------");
         if (message.contains("<<EXIT>>")) {
             terminate();
             return null;
@@ -156,13 +155,11 @@ public class ClientInstance implements Runnable {
                 sendResponse("<<READY>>\n");
                 // Wait for User Input
                 String userInput = readLineFromQueue();
-
                 // Check if user input is to print the main menu again
                 if ("<<PRINT>>".equals(userInput)) {
                     printMenu = true;
                     break; // Break out of the current loop to start the outer loop again
                 }
-
                 result = handleMainUserInput(userInput, count, fundraiserTitles); // Returns 0 if valid input, 1 if need retry, 2 if exiting.
                 if (result == 2) return false;
             } while (result != 0); // Retry if invalid input
@@ -453,10 +450,8 @@ public class ClientInstance implements Runnable {
                     + "Type \"remove\" if you want to delete this fundraiser.\n");
             if (fundraiser.isCurrent()) sendResponse("Type \"donate\" to donate to this fundraiser.\n"); //Only show donate if the fundraiser is current
             sendResponse("<<READY>>\n");
-            System.out.println("Wahhdfsa");
             //Wait for User Input
             String userInput = readLineFromQueue();
-            System.out.println("Hey!");
             if ("<<PRINT>>".equals(userInput)) {
                 printTable = true; // Set the flag to reprint the table
                 continue; // Skip the rest of the loop and start from the beginning

@@ -1,5 +1,7 @@
 # Fundraiser Project - User Manual
-Project 1 for CSCI 455 NDSU
+Project 2 for CSCI 455 NDSU
+
+Uses UDP protocol for communication
 
 ## Prerequisites
 

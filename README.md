@@ -6,8 +6,8 @@ Uses UDP protocol for communication
 
 ## Prerequisites
 
- - [FundraiserServerUDP.jar](https://github.com/ethanseverson/csci455project2/releases/download/v2.1/FundraiserServerUDP.jar)
- - [FundraiserClientUDP.jar](https://github.com/ethanseverson/csci455project2/releases/download/v2.1/FundraiserClientUDP.jar)
+ - [FundraiserServerUDP.jar](https://github.com/ethanseverson/csci455project2/releases/download/v2.2/FundraiserServerUDP.jar)
+ - [FundraiserClientUDP.jar](https://github.com/ethanseverson/csci455project2/releases/download/v2.2/FundraiserClientUDP.jar)
 
 *Java JDK is required to run Java applications, it is  recommended to use Java JDK 16 or newer.*
 

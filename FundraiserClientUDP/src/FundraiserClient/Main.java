@@ -57,7 +57,8 @@ public class Main {
                 clientSocket = new DatagramSocket();
                 clientSocket.setSoTimeout(5000); //5 second timeout
 
-                System.out.println("Type exit or quit at any time to disconnect.");
+                System.out.println("Type exit or quit at any time to disconnect and close the session.");
+                System.out.println("Type pause or leave at any time to disconnect and leave the session open to resume to later.");
 
                 // Send initial connection message to the server
                 String initialMessage = "<<START>>";
@@ -66,7 +67,7 @@ public class Main {
                 clientSocket.send(sendPacket);
 
                 // Buffer for receiving data
-                byte[] receiveData = new byte[1024];
+                byte[] receiveData = new byte[10240];
 
                 // Continuously listen for messages from the server
                 while (true) {
@@ -101,6 +102,9 @@ public class Main {
 
                                     System.out.println("Exiting....");
                                     clientSocket.close();
+                                    return;
+                                } else if (userInput.equalsIgnoreCase("pause") || userInput.equalsIgnoreCase("leave")) {
+                                    System.out.println("Exiting ungracefully...");
                                     return;
                                 }
 
